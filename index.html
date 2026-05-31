@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zimbabwe Disability Sound Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f0ede6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem 3rem;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .page-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1a1a18;
+      letter-spacing: 0.01em;
+    }
+
+    .page-header p {
+      font-size: 14px;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    .map-container {
+      position: relative;
+      width: 100%;
+      max-width: 820px;
+      margin: 1.2rem auto 0;
+    }
+
+    svg.zim-map {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 12px;
+      overflow: visible;
+    }
+
+    .zone { cursor: pointer; }
+    .zone-area {
+      fill: transparent;
+      stroke: transparent;
+      transition: fill 0.2s, stroke 0.2s;
+    }
+    .zone:hover .zone-area {
+      fill: rgba(255, 180, 0, 0.14);
+      stroke: rgba(226, 106, 18, 0.5);
+      stroke-width: 2;
+    }
+    .zone.active .zone-area {
+      fill: rgba(226, 106, 18, 0.16);
+      stroke: rgba(226, 106, 18, 0.65);
+      stroke-width: 2.5;
+    }
+
+    .popup { opacity: 0; pointer-events: none; transition: opacity 0.18s ease; }
+    .zone:hover .popup,
+    .zone.active .popup { opacity: 1; pointer-events: all; }
+
+    .listen-btn { cursor: pointer; }
+    .listen-btn rect { transition: fill 0.15s; }
+    .listen-btn:hover rect { fill: #c45a0a !important; }
+    .listen-btn.playing rect { fill: #1a7a4a !important; }
+
+    .audio-panel {
+      display: none;
+      background: #ffffff;
+      border: 1px solid #e0ddd5;
+      border-radius: 12px;
+      padding: 1.1rem 1.4rem;
+      margin-top: 1.2rem;
+      max-width: 820px;
+      width: 100%;
+    }
+    .audio-panel.visible { display: block; }
+
+    .audio-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .audio-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #1a7a4a;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .audio-dot.idle { background: #bbb; }
+    .audio-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #1a1a18;
+    }
+    .audio-theme {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .progress-bar-wrap {
+      background: #ede9e0;
+      border-radius: 4px;
+      height: 5px;
+      width: 100%;
+      margin: 0 0 10px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .progress-bar {
+      height: 5px;
+      width: 0%;
+      background: #E26A12;
+      border-radius: 4px;
+      transition: width 0.4s linear;
+    }
+
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .play-btn-ui {
+      background: #E26A12;
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .play-btn-ui:hover { background: #c45a0a; }
+    .play-btn-ui.playing { background: #1a7a4a; }
+
+    .audio-time {
+      font-size: 13px;
+      color: #777;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .audio-note {
+      font-size: 12.5px;
+      color: #999;
+      margin-top: 10px;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* ── HOW TO ADD AUDIO ── */
+    .audio-file-hint {
+      font-size: 12px;
+      color: #b07040;
+      background: #fdf3e8;
+      border: 1px solid #f0d0a0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .audio-file-hint code {
+      font-family: monospace;
+      background: #f5e8d0;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      max-width: 820px;
+      width: 100%;
+      margin-top: 1.2rem;
+      padding: 0.9rem 1.1rem;
+      background: #fff;
+      border: 1px solid #e0ddd5;
+      border-radius: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      color: #444;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Zimbabwe Disability Sound Map</h1>
+  <p>Hover over a location on the map — click <strong>Listen</strong> to hear the story</p>
+</div>
+
+<div class="map-container">
+
+<svg class="zim-map"
+     viewBox="260.02 -2.5 486.95 499"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <filter id="mapshadow" x="-8%" y="-8%" width="120%" height="120%">
+      <feDropShadow dx="2" dy="3" stdDeviation="5"
+                    flood-color="rgba(2,0,0,0.16)"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200%" height="100%" fill="#b8d4e8"/>
+
+  <!-- =========================
+       PROVINCES (YOUR MAP)
+  ========================== -->
+  <g id="polygons">
+    <path d="M462.587,335.432L458.915,334.38L458.038,337.137L455.603,335.425L456.777,332.704L455.524,330.193L449.876,330.912L451.304,327.857L452.084,320.442L456.202,323.01L461.212,320.892L460.837,323.547L467.277,326.834L466.202,329.918L468.121,331.666L467.047,334.061Z" class="land" id="ZW-BU" title="Bulawayo"/>
+    <path d="M623.046,149.07L624.979,151.252L629.608,151.687L629.238,156.109L630.691,162.481L629.126,165.815L625.812,167.729L624.835,174.754L620.056,177.248L616.438,173.282L610.712,169.259L612.717,165.96L610.735,164.242L611.423,158.617L613.283,158.276L616.317,153.108L617.579,154.463L621.75,153.999Z" class="land" id="ZW-HA" title="Harare"/>
+    <path d="M691.464,413.632L687.694,409.095L685.108,407.811L683.827,404.283L682.779,397.99L679.19,395.921L678.768,392.51L676.775,390.514L676.483,383.938L681.15,374.626L682.193,369.292L684.339,366.599L686.407,358.595L686.607,352.746L687.995,343.653L689.417,338.349L691.47,327.153L691.953,319.977L691.233,317.264L685.022,314.006L683.167,311.648L678.923,311.743L675.323,308.775L672.762,308.783L667.186,301.55L665.718,297.683L661.743,293.214L661.029,290.371L656.703,287.331L653.378,283.022L652.602,279.54L646.992,278.576L642.869,273.469L637.492,272.591L631.801,267.26L625.51,262.865L630.548,261.922L630.95,258.593L632.502,256.453L632.74,252.827L635.954,252.464L640.436,253.646L641.092,255.539L644.574,257.331L646.722,255.808L649.299,250.796L650.364,246.967L653.594,249.157L657.774,247.481L661.34,249.331L663.559,251.993L668.712,254.72L670.771,253.893L672.342,251.151L673.376,244.762L671.65,239.199L669.446,235.443L669.77,230.693L668.437,227.952L664.9,226.828L664.698,223.644L660.854,218.307L661.709,214.442L659.133,210.389L662.355,205.799L667.26,203.914L668.184,198.686L668.595,185.164L669.816,182.989L675.901,183.751L676.342,179.727L687.208,167.664L686.853,164.612L688.328,161.705L693.617,158.247L697.524,153.449L702.433,149.824L706.403,148.969L709.856,145.2L712.661,145.192L716.78,141.539L718.683,141.344L719.211,136.857L724.276,134.422L727.455,126.34L731.668,123.985L734.046,120.724L741.643,118.535L741.657,123.152L744.476,125.935L742.811,128.131L741.162,133.016L738.915,135.676L739.814,141.576L743.477,144.518L740.462,154.297L740.76,158.885L738.25,158.914L736.934,166.526L737.712,169.897L736.023,171.404L736.208,175.616L738.709,185.512L739.145,190.696L738.504,195.365L741.522,199.208L739.53,201.623L738.656,207.619L735.324,207.924L730.504,211.136L730.386,215.254L734.172,223.311L732.281,228.829L729.087,231.07L725.223,229.917L718.785,233.71L718.258,235.392L719.529,240.65L717.689,241.469L718.749,247.576L723.601,247.003L726.271,247.576L727.971,252.877L725.712,262.727L725.55,267.072L720.796,271.982L720.446,278.967L724.562,280.338L724.091,295.434L728.181,295.021L731.478,293.28L731.981,295.949L730.592,298.22L736.142,302.398L736.284,303.748L732.65,319.68L727.371,321.508L726.695,326.674L723.55,326.413L722.61,329.642L723.33,332.298L722.604,339.147L718.909,342.935L718.397,345.264L714.01,350.859L710.571,357.252L708.936,359.067L703.354,359.016L698.532,363.196L698.134,376.905L698.865,384.671L696.368,390.347L690.244,398.033L688.793,400.806L691.054,403.651L690.501,405.88L694.758,413.48Z" class="land" id="ZW-MA" title="Manicaland"/>
+    <path d="M728.701,79.295L724.62,81.867L722.092,80.817L718.708,81.99L714.512,79.628L710.129,79.295L702.702,82.346L699.875,82.483L696.627,84.787L693.919,83.889L687.707,86.954L684.978,86.816L681.926,90.142L682.35,93.823L679.031,95.649L677.696,98.852L675.09,101.838L675.435,103.657L672.455,106.447L670.838,110.186L671.559,112.107L663.778,116.172L664.771,117.788L664.417,122.84L658.87,127.877L655.742,133.306L650.804,135.458L648.442,140.133L641.478,145.243L638.821,145.236L634.954,147.128L634.576,144.7L637.438,136.11L630.964,135.19L627.175,134.052L625.186,137.292L624.932,141.786L623.046,149.07L621.75,153.999L617.579,154.463L616.317,153.108L615.954,150.346L613.599,149.368L612.066,151.201L607.771,148.201L603.548,146.33L604.682,141.235L593.778,141.481L594.609,128.413L598.474,117.665L601.877,111.201L602.871,105.78L598.315,103.606L595.496,105.642L591.831,104.657L591.39,98.744L589.909,88.077L592.092,84.28L590.796,77.802L584.376,75.129L582.214,71.506L584.683,64.724L585.083,60.334L586.486,57.037L585.197,52.618L580.708,52.828L578.614,49.075L575.045,47.388L573.366,48.684L571.595,53.835L562.806,56.168L563.419,53.147L565.629,50.119L565.748,44.765L568.911,41.172L567.402,39.578L565.714,35.123L565.682,31.371L564.056,29.741L563.596,26.517L569.659,22.193L577.974,14.841L581.09,11.48L581.573,9.351L579.561,7.127L579.304,2.419L584.169,2.977L587.911,0.637L588.265,2.825L587.311,22.33L587.223,28.335L617.926,28.335L621.43,32.609L624.537,29.697L631.421,27.053L635.966,28.886L637.788,28.335L641.575,30.306L647.243,38.267L655.771,41.679L664.756,42.947L669.526,45.482L673.001,50.677L676.805,52.712L677.785,58.247L685.335,60.385L700.63,59.819L708.328,62.355L718.198,67.217L726.228,71.803L725.622,77.585Z" class="land" id="ZW-MC" title="Mashonaland Central"/>
+    <path d="M741.643,118.535L734.046,120.724L731.668,123.985L727.455,126.34L724.276,134.422L719.211,136.857L718.683,141.344L716.78,141.539L712.661,145.192L709.856,145.2L706.403,148.969L702.433,149.824L697.524,153.449L693.617,158.247L688.328,161.705L686.853,164.612L687.208,167.664L676.342,179.727L675.901,183.751L669.816,182.989L668.595,185.164L668.184,198.686L667.26,203.914L662.355,205.799L659.133,210.389L661.709,214.442L660.854,218.307L664.698,223.644L664.9,226.828L668.437,227.952L669.77,230.693L669.446,235.443L671.65,239.199L673.376,244.762L672.342,251.151L670.771,253.893L668.712,254.72L663.559,251.993L661.34,249.331L657.774,247.481L653.594,249.157L650.364,246.967L649.299,250.796L646.722,255.808L644.574,257.331L641.092,255.539L640.436,253.646L635.954,252.464L632.74,252.827L632.502,256.453L630.95,258.593L630.548,261.922L625.51,262.865L618.346,263.387L612.36,264.395L612.358,257.483L607.326,256.25L606.492,263.372L603.82,265.353L595.296,257.686L595.941,252.261L593.056,246.756L594.948,243.725L594.023,239.939L588.576,240.925L582.846,237.488L589.373,230.482L589.736,223.862L592.64,225.312L596.604,218.242L599.914,213.333L600.761,203.493L602.318,201.159L597.769,194.263L597.587,189.34L601.08,186.303L600.852,184.004L603.647,178.473L602.769,174.087L604.756,171.984L604.893,169.222L608.057,167.744L610.712,169.259L616.438,173.282L620.056,177.248L624.835,174.754L625.812,167.729L629.126,165.815L630.691,162.481L629.238,156.109L629.608,151.687L624.979,151.252L623.046,149.07L624.932,141.786L625.186,137.292L627.175,134.052L630.964,135.19L637.438,136.11L634.576,144.7L634.954,147.128L638.821,145.236L641.478,145.243L648.442,140.133L650.804,135.458L655.742,133.306L658.87,127.877L664.417,122.84L664.771,117.788L663.778,116.172L671.559,112.107L670.838,110.186L672.455,106.447L675.435,103.657L675.09,101.838L677.696,98.852L679.031,95.649L682.35,93.823L681.926,90.142L684.978,86.816L687.707,86.954L693.919,83.889L696.627,84.787L699.875,82.483L702.702,82.346L710.129,79.295L714.512,79.628L718.708,81.99L722.092,80.817L724.62,81.867L728.701,79.295L737.19,80.512L739.093,79.143L742.48,79.57L741.536,84.302L737.783,93.12L732.986,95.048L738.806,105.766L741.418,113.781Z" class="land" id="ZW-ME" title="Mashonaland East"/>
+    <path d="M449.54,129.653L452.975,129.914L455.549,128.479L462.386,127.21L467.085,130.479L468.303,127.428L471.671,123.398L476.186,115.781L478.146,115.694L480.844,112.889L483.465,111.672L488.808,111.512L491.875,110.099L493.818,115.035L496.909,117.745L505.733,122.318L510.159,122.572L511.982,124.942L512.078,128.131L514.874,130.305L517.18,133.74L519.953,135.118L514.503,143.511L515.5,144.678L515.16,151.165L513.144,153.333L514.178,156.218L512.29,158.573L510.177,164.619L507.132,169.868L506.161,173.753L507.307,179.582L510.558,186.716L514.271,188.789L516.018,192.291L518.478,192.929L527.863,199.977L525.915,206.096L525.626,214.413L528.919,214.921L531.7,217.683L536.201,217.393L538.979,218.96L541.516,221.918L545.864,223.789L550.293,223.187L555.96,223.847L557.924,225.21L561.424,225.044L565.437,226.567L566.063,229.09L569.205,231.113L571.78,230.642L574.841,233.862L580.428,237.103L582.846,237.488L588.576,240.925L594.023,239.939L594.948,243.725L593.056,246.756L595.941,252.261L595.296,257.686L603.82,265.353L593.16,274.528L596.46,275.137L596.798,277.633L594.291,278.38L594.287,282.5L592.636,287.933L593.098,293.65L590.785,304.64L591.156,308.268L587.019,308.449L580.727,306.722L577.106,307.23L576.785,313.121L575.144,314.093L574.854,317.859L565.579,318.156L561.356,320.094L559.199,322.597L557.957,330.883L560.36,331.311L564.729,335.156L562.112,341.223L562.691,343.349L566.225,344.872L574.227,357.818L573.949,362.543L576.037,369.756L573.61,377.921L572.645,387.676L569.632,391.784L566.74,394.019L561.361,392.974L559.372,393.751L554.368,392.894L550.154,390.579L548.84,388.314L544.191,384.693L541.53,385.092L531.625,393.519L528.612,392.684L523.157,392.749L520.113,393.714L512.69,392.698L513.234,390.768L521.536,384.322L523.199,381.296L524.462,373.944L527.016,365.453L522.359,366.244L521,363.813L522.882,359.291L528.362,355.634L530.389,351.04L530.889,347.478L534.91,335.331L534.946,333.335L540.487,322.582L539.839,318.788L536.335,318.693L536.327,315.066L529.772,316.357L529.062,311.525L523.946,313.586L521.869,310.154L517.695,307.513L512.952,309.102L513.516,297.581L511.025,295.449L510.145,292.38L507.565,289.638L505.485,283.907L502.733,280.599L497.844,274.557L494.82,272.577L497.077,269.226L496.115,267.188L489.623,258.498L490.269,251.246L488.848,247.213L486.583,246.698L483.769,231.998L483.643,225.377L493.099,222.274L498.698,219.902L499.613,218.648L498.562,214.747L491.386,215.138L479.23,214.667L473.195,213.224L468.234,213.913L464.679,213.485L460.146,214.377L454.915,213.927L452.241,214.573L445.096,214.362L437.243,212.318L434.273,213.144L430.516,212.535L430.964,207.713L431.269,190.544L434.948,187.325L434.642,184.026L435.674,177.915L433.294,177.523L431.848,173.514L436.194,167.939L437.694,161.734L437.019,157.464L439.584,154.101L442.234,153.666L444.806,149.368L446.193,143.025L446.251,138.662Z" class="land" id="ZW-MI" title="Midlands"/>
+    <path d="M436.281,92.004L437.176,96.91L436.352,99.599L437.735,102.374L438.048,105.903L440.361,110.52L442.747,110.744L442.693,113.708L444.313,122.738L447.698,126L449.54,129.653L446.251,138.662L446.193,143.025L444.806,149.368L442.234,153.666L439.584,154.101L437.019,157.464L437.694,161.734L436.194,167.939L431.848,173.514L433.294,177.523L435.674,177.915L434.642,184.026L434.948,187.325L431.269,190.544L430.964,207.713L430.516,212.535L434.273,213.144L437.243,212.318L445.096,214.362L452.241,214.573L454.915,213.927L460.146,214.377L464.679,213.485L468.234,213.913L473.195,213.224L479.23,214.667L491.386,215.138L498.562,214.747L499.613,218.648L498.698,219.902L493.099,222.274L483.643,225.377L483.769,231.998L486.583,246.698L488.848,247.213L490.269,251.246L489.623,258.498L496.115,267.188L497.077,269.226L494.82,272.577L497.844,274.557L502.733,280.599L501.857,282.826L495.824,281.535L494.163,283.523L496.358,286.294L495.028,290.516L491.559,293.294L494.427,296.711L493.494,304.858L490.231,307.68L484.83,305.409L486.581,314.311L478.235,323.888L473.131,328.764L469.189,337.558L465.769,340.098L462.587,335.432L467.047,334.061L468.121,331.666L466.202,329.918L467.277,326.834L460.837,323.547L461.212,320.892L456.202,323.01L452.084,320.442L451.304,327.857L449.876,330.912L455.524,330.193L456.777,332.704L455.603,335.425L453.64,335.643L451.403,339.35L448.618,339.488L446.234,343.058L444.45,337.783L443.448,337.74L438.695,331.761L437.183,327.378L433.249,324.802L427.337,325.535L424.934,326.805L421.95,322.568L420.378,328.009L418.548,331.746L415.017,330.904L411.679,328.256L408.204,323.344L405.735,321.61L400.705,315.544L399.983,311.569L397.432,307.499L393.237,306.635L389.579,303.479L385.206,303.175L382.053,304.655L374.436,303.291L365.711,304.858L363.836,304.154L358.545,304.822L350.188,308.079L346.335,310.771L341.455,310.161L339.184,304.43L334.234,300.984L329.691,299.322L327.912,294.723L323.998,293.679L325.723,290.537L323.242,287.897L319.587,288.528L314.919,285.387L313.464,277.908L308.37,261.726L304.498,255.699L303.518,252.486L305.733,248.664L305.582,245.712L302.992,239.279L295.74,234.442L294.17,228.162L294.803,223.303L294.132,219.272L292.081,217.082L289.723,216.61L285.902,209.49L283.835,208.641L278.775,201.231L277.044,194.735L273.142,184.78L269.382,179.814L267.32,178.915L265.041,174.087L264.314,170.121L262.524,167.301L262.657,164.351L264.43,158.733L271.496,162.713L277.599,162.459L279.721,163.909L282.064,161.915L286.746,162.154L289.49,160.103L295.334,162.662L297.764,165.272L299.78,165.605L301.676,171.586L307.601,173.71L310.13,171.687L314.845,172.166L315.774,168.251L322.266,165.496L324.402,167.359L328.192,168.722L334.322,168.86L340.831,172.376L343.749,172.572L346.044,177.095L351.395,179.031L354.15,175.863L358.041,175.21L360.403,172.34L364.087,172.448L371.483,169.904L373.081,170.709L376.279,165.982L380.279,162.299L380.265,158.885L384.856,153.122L390.917,144.236L405.726,131.544L410.495,125.362L411.605,118.615L424.614,98.07Z" class="land" id="ZW-MN" title="Matabeleland North"/>
+    <path d="M502.733,280.599L505.485,283.907L507.565,289.638L510.145,292.38L511.025,295.449L513.516,297.581L512.952,309.102L517.695,307.513L521.869,310.154L523.946,313.586L529.062,311.525L529.772,316.357L536.327,315.066L536.335,318.693L539.839,318.788L540.487,322.582L534.946,333.335L534.91,335.331L530.889,347.478L530.389,351.04L528.362,355.634L522.882,359.291L521,363.813L522.359,366.244L527.016,365.453L524.462,373.944L523.199,381.296L521.536,384.322L513.234,390.768L512.69,392.698L520.113,393.714L523.157,392.749L528.612,392.684L529.914,396.85L533.626,400.378L534.606,404.472L536.647,405.176L536.793,408.137L540.525,416.587L543.247,417.915L546.143,423.004L549.421,426.961L552.4,426.852L555.649,430.177L557.486,430.3L557.881,433.763L564.247,434.235L570.669,437.872L573.052,438.387L572.895,441.517L575.26,443.702L576.989,442.998L582.283,447.325L582.704,450.214L588.481,456.901L587.777,459.268L593.019,464.714L594.609,469.463L597.543,469.775L598.435,474.756L600.341,475.439L601.931,481.415L606.338,485.3L604.564,488.307L596.369,485.351L590.634,484.683L582.803,486.506L580.067,486.063L578.505,487.609L575.012,486.636L573.248,487.559L569.445,486.455L562.772,488.96L557.143,489.352L553.784,484.966L547.33,486.063L541.037,480.101L538.147,479.76L535.588,477.269L533.058,477.61L528.337,475.497L526.505,473.747L520.357,473.558L515.985,474.691L512.169,474.568L511.388,476.405L508.3,475.541L501.122,477.755L496.918,472.309L494.798,467.887L490.926,469.267L486.138,468.003L483.136,465.113L481.472,458.564L484.406,449.169L479.799,446.918L477.221,447.223L468.335,444.268L466.914,442.816L461.02,440.152L460.155,438.554L454.842,436.79L450.021,439.309L444.913,436.994L442.677,434.968L437.235,434.286L432.518,435.222L427.119,433.451L422.258,433.117L418.6,428.18L419.312,424.006L416.083,417.218L415.33,412.863L409.067,403.789L404.076,398.65L403.033,395.66L403.495,391.74L404.986,388.532L403.838,387.081L403.924,382.167L405.453,379.939L407.042,373.327L407.036,370.076L405.646,366.57L405.787,362.1L407.495,357.862L404.865,353.892L401.217,353.406L397.99,354.255L392.189,352.666L389.959,353.544L384.994,352.673L380.435,354.437L381.398,348.733L381.876,340.076L381.102,334.699L379.964,333.596L379.004,328.655L376.679,324.628L371.044,324.389L367.983,319.948L362.578,319.767L359.093,318.084L352.942,317.032L352.099,314.58L347.465,314.246L346.335,310.771L350.188,308.079L358.545,304.822L363.836,304.154L365.711,304.858L374.436,303.291L382.053,304.655L385.206,303.175L389.579,303.479L393.237,306.635L397.432,307.499L399.983,311.569L400.705,315.544L405.735,321.61L408.204,323.344L411.679,328.256L415.017,330.904L418.548,331.746L420.378,328.009L421.95,322.568L424.934,326.805L427.337,325.535L433.249,324.802L437.183,327.378L438.695,331.761L443.448,337.74L444.45,337.783L446.234,343.058L448.618,339.488L451.403,339.35L453.64,335.643L455.603,335.425L458.038,337.137L458.915,334.38L462.587,335.432L465.769,340.098L469.189,337.558L473.131,328.764L478.235,323.888L486.581,314.311L484.83,305.409L490.231,307.68L493.494,304.858L494.427,296.711L491.559,293.294L495.028,290.516L496.358,286.294L494.163,283.523L495.824,281.535L501.857,282.826Z" class="land" id="ZW-MS" title="Matabeleland South"/>
+    <path d="M603.82,265.353L606.492,263.372L607.326,256.25L612.358,257.483L612.36,264.395L618.346,263.387L625.51,262.865L631.801,267.26L637.492,272.591L642.869,273.469L646.992,278.576L652.602,279.54L653.378,283.022L656.703,287.331L661.029,290.371L661.743,293.214L665.718,297.683L667.186,301.55L672.762,308.783L675.323,308.775L678.923,311.743L683.167,311.648L685.022,314.006L691.233,317.264L691.953,319.977L691.47,327.153L689.417,338.349L687.995,343.653L686.607,352.746L686.407,358.595L684.339,366.599L682.193,369.292L681.15,374.626L676.483,383.938L676.775,390.514L678.768,392.51L679.19,395.921L682.779,397.99L683.827,404.283L685.108,407.811L687.694,409.095L691.464,413.632L690.037,414.663L674.366,432.507L655.117,454.854L650.645,459.661L638.56,473.703L623.589,490.478L618.865,494L616.72,490.166L613.81,490.333L610.012,487.348L604.564,488.307L606.338,485.3L601.931,481.415L600.341,475.439L598.435,474.756L597.543,469.775L594.609,469.463L593.019,464.714L587.777,459.268L588.481,456.901L582.704,450.214L582.283,447.325L576.989,442.998L575.26,443.702L572.895,441.517L573.052,438.387L570.669,437.872L564.247,434.235L557.881,433.763L557.486,430.3L555.649,430.177L552.4,426.852L549.421,426.961L546.143,423.004L543.247,417.915L540.525,416.587L536.793,408.137L536.647,405.176L534.606,404.472L533.626,400.378L529.914,396.85L528.612,392.684L531.625,393.519L541.53,385.092L544.191,384.693L548.84,388.314L550.154,390.579L554.368,392.894L559.372,393.751L561.361,392.974L566.74,394.019L569.632,391.784L572.645,387.676L573.61,377.921L576.037,369.756L573.949,362.543L574.227,357.818L566.225,344.872L562.691,343.349L562.112,341.223L564.729,335.156L560.36,331.311L557.957,330.883L559.199,322.597L561.356,320.094L565.579,318.156L574.854,317.859L575.144,314.093L576.785,313.121L577.106,307.23L580.727,306.722L587.019,308.449L591.156,308.268L590.785,304.64L593.098,293.65L592.636,287.933L594.287,282.5L594.291,278.38L596.798,277.633L596.46,275.137L593.16,274.528Z" class="land" id="ZW-MV" title="Masvingo"/>
+    <path d="M579.304,2.419L579.561,7.127L581.573,9.351L581.09,11.48L577.974,14.841L569.659,22.193L563.596,26.517L564.056,29.741L565.682,31.371L565.714,35.123L567.402,39.578L568.911,41.172L565.748,44.765L565.629,50.119L563.419,53.147L562.806,56.168L571.595,53.835L573.366,48.684L575.045,47.388L578.614,49.075L580.708,52.828L585.197,52.618L586.486,57.037L585.083,60.334L584.683,64.724L582.214,71.506L584.376,75.129L590.796,77.802L592.092,84.28L589.909,88.077L591.39,98.744L591.831,104.657L595.496,105.642L598.315,103.606L602.871,105.78L601.877,111.201L598.474,117.665L594.609,128.413L593.778,141.481L604.682,141.235L603.548,146.33L607.771,148.201L612.066,151.201L613.599,149.368L615.954,150.346L616.317,153.108L613.283,158.276L611.423,158.617L610.735,164.242L612.717,165.96L610.712,169.259L608.057,167.744L604.893,169.222L604.756,171.984L602.769,174.087L603.647,178.473L600.852,184.004L601.08,186.303L597.587,189.34L597.769,194.263L602.318,201.159L600.761,203.493L599.914,213.333L596.604,218.242L592.64,225.312L589.736,223.862L589.373,230.482L582.846,237.488L580.428,237.103L574.841,233.862L571.78,230.642L569.205,231.113L566.063,229.09L565.437,226.567L561.424,225.044L557.924,225.21L555.96,223.847L550.293,223.187L545.864,223.789L541.516,221.918L538.979,218.96L536.201,217.393L531.7,217.683L528.919,214.921L525.626,214.413L525.915,206.096L527.863,199.977L518.478,192.929L516.018,192.291L514.271,188.789L510.558,186.716L507.307,179.582L506.161,173.753L507.132,169.868L510.177,164.619L512.29,158.573L514.178,156.218L513.144,153.333L515.16,151.165L515.5,144.678L514.503,143.511L519.953,135.118L517.18,133.74L514.874,130.305L512.078,128.131L511.982,124.942L510.159,122.572L505.733,122.318L496.909,117.745L493.818,115.035L491.875,110.099L488.808,111.512L483.465,111.672L480.844,112.889L478.146,115.694L476.186,115.781L471.671,123.398L468.303,127.428L467.085,130.479L462.386,127.21L455.549,128.479L452.975,129.914L449.54,129.653L447.698,126L444.313,122.738L442.693,113.708L442.747,110.744L440.361,110.52L438.048,105.903L437.735,102.374L436.352,99.599L437.176,96.91L436.281,92.004L443.859,88.055L452.395,80.331L475.75,69.709L481.557,68.492L485.789,64.84L489.029,55.726L487.503,51.626L489.793,47.163L488.588,44.468L489.163,40.179L490.598,37.26L489.607,32.464L494.092,24.482L500.489,24.112L503.709,19.636L514.028,11.212L516.448,10.835L522.507,7.322L526.999,5.801L531.094,5.533L533.946,2.68L539.098,3.817L551.075,0L558.057,1.043L560.004,2.441L569.827,0.804L572.386,0.84L575.338,3.824L578.121,1.239Z" class="land" id="ZW-MW" title="Mashonaland West"/>
+  </g>
+
+
+  <!-- =========================
+       TERRAIN SHADING
+  ========================== -->
+  <g id="terrain">
+<!-- 
+    <path d="M 155 90 L 200 82 L 260 78 L 330 75 L 390 76 L 340 90 L 290 100 L 240 105 L 190 110 Z"
+      fill="#c8de98" opacity="0.5"/>
+
+    <path d="M 300 200 L 420 195 L 430 240 L 310 248 Z"
+      fill="#b8d060" opacity="0.35"/> -->
+
+  </g>
+
+
+ <g id="lake-kariba">
+  <path d="M 330 120 C 360 100 410 105 430 140
+           C 450 175 420 205 390 210
+           C 360 215 320 190 315 155
+           C 310 135 320 125 330 120 Z"
+    fill="#8ab8d8" opacity="0.8"/>
+
+  <text x="360" y="160"
+        font-family="DM Sans,sans-serif"
+        font-size="9"
+        fill="#4a7a98">
+    Lake Kariba
+  </text>
+</g>
+
+
+  <!-- =========================
+       RIVERS
+  ========================== -->
+  <!-- <path d="M 200 160 L 350 158
+           M 350 158 L 380 170
+           M 380 170 L 500 168
+           M 200 200 L 300 198
+           M 400 220 L 550 230
+           M 250 280 L 430 275
+           M 430 275 L 550 290"
+    stroke="#8aaa50"
+    stroke-width="0.8"
+    opacity="0.4"
+    fill="none"/> -->
+
+
+  <!-- =========================
+       ZONES (INTERACTIVE LAYER)
+  ========================== -->
+
+  <!-- Zone 1 -->
+ <g class="zone" id="zone-binga" onclick="handleZoneClick('binga')">
+    <circle class="zone-area" cx="340" cy="190" r="30"/>
+      <!-- Pin -->
+      <circle cx="340" cy="190" r="15" fill="#2a8a42" stroke="#fff" stroke-width="2.5"/>
+      <text x="340" y="192" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" fill="#fff">📖</text>
+      <!-- Popup card -->
+      <g class="popup">
+        <rect x="260" y="236" width="120" height="64" rx="9"
+          fill="#ffffff" stroke="#e0ddd5" stroke-width="1"/>
+        <text x="320" y="255" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="11.5" font-weight="500" fill="#1a1a18">Binga District</text>
+        <text x="320" y="270" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="10" fill="#888">Epistemic Injustice</text>
+        <g class="listen-btn" id="btn-binga" onclick="toggleAudio('binga', event)">
+          <rect x="280" y="280" width="70" height="26" rx="7" fill="#E26A12"/>
+          <text x="320" y="297" text-anchor="middle"
+            font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#fff" letter-spacing="0.06em">▶  LISTEN</text>
+        </g>
+      </g>
+    </g>
+
+  <!-- Zone 2 -->
+   <g class="zone" id="zone-harare" onclick="handleZoneClick('harare')">
+      <circle class="zone-area" cx="610" cy="165" r="30"/>
+      <!-- Pin (medical cross) -->
+      <rect x="596" y="150" width="28" height="28" rx="14" fill="#d42020" stroke="#fff" stroke-width="2.5"/>
+      <text x="610" y="169" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="16" fill="#fff">✚</text>
+      <!-- Popup card -->
+      <g class="popup">
+        <rect x="525" y="186" width="170" height="64" rx="9"
+          fill="#ffffff" stroke="#e0ddd5" stroke-width="1"/>
+        <text x="610" y="205" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#1a1a18">Harare Central Hospital</text>
+        <text x="610" y="219" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="10" fill="#888">Language Barriers</text>
+        <g class="listen-btn" id="btn-harare" onclick="toggleAudio('harare', event)">
+          <rect x="565" y="225" width="110" height="26" rx="7" fill="#E26A12"/>
+          <text x="610" y="246" text-anchor="middle"
+            font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#fff" letter-spacing="0.06em">▶  LISTEN</text>
+        </g>
+      </g>
+    </g>
+ 
+
+  <!-- Zone 3 -->
+<g class="zone" id="zone-epworth" onclick="handleZoneClick('epworth')">
+      <circle class="zone-area" cx="635" cy="180" r="30"/>
+      <!-- Pin (phone) -->
+      <circle cx="635" cy="180" r="15" fill="#7a44bb" stroke="#fff" stroke-width="2.5"/>
+      <text x="635" y="185" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" fill="#fff">📱</text>
+      <!-- Popup card -->
+      <g class="popup">
+        <rect x="562" y="234" width="150" height="64" rx="9"
+          fill="#ffffff" stroke="#e0ddd5" stroke-width="1"/>
+        <text x="637" y="253" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#1a1a18">Epworth (Peri-Urban)</text>
+        <text x="637" y="267" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="10" fill="#888">Financial Exclusion</text>
+        <g class="listen-btn" id="btn-epworth" onclick="toggleAudio('epworth', event)">
+          <rect x="582" y="277" width="110" height="26" rx="7" fill="#E26A12"/>
+          <text x="637" y="294" text-anchor="middle"
+            font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#fff" letter-spacing="0.06em">▶  LISTEN</text>
+        </g>
+      </g>
+    </g>
+<!-- <g class="zone" id="zone-epworth">
+  <circle cx="635" cy="180" r="50" opacity="0.25" fill="#7a44bb"/>
+  <circle cx="635" cy="180" r="15" fill="#7a44bb" stroke="#fff" stroke-width="2.5"/>
+  <text x="635" y="185" text-anchor="middle" font-size="13" fill="#fff">📱</text>
+</g> -->
+
+  <!-- Zone 4 -->
+
+  <g class="zone" id="zone-makokoba" onclick="handleZoneClick('makokoba')">
+      <circle class="zone-area" cx="440" cy="360" r="30"/>
+      <!-- Pin (wheelchair) -->
+      <circle cx="440" cy="360" r="15" fill="#2055aa" stroke="#fff" stroke-width="2.5"/>
+      <text x="440" y="365" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" fill="#fff">♿</text>
+      <!-- Popup card -->
+      <g class="popup">
+        <rect x="364" y="381" width="150" height="64" rx="9"
+          fill="#ffffff" stroke="#e0ddd5" stroke-width="1"/>
+        <text x="439" y="400" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#1a1a18">Makokoba (Bulawayo)</text>
+        <text x="439" y="414" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="10" fill="#888">Disability Justice</text>
+        <g class="listen-btn" id="btn-makokoba" onclick="toggleAudio('makokoba', event)">
+          <rect x="384" y="424" width="110" height="26" rx="7" fill="#E26A12"/>
+          <text x="439" y="441" text-anchor="middle"
+            font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#fff" letter-spacing="0.06em">▶  LISTEN</text>
+        </g>
+      </g>
+    </g>
+ <!-- <g class="zone" id="zone-makokoba">
+  <circle cx="320" cy="360" r="55" opacity="0.25" fill="#2055aa"/>
+  <circle cx="320" cy="360" r="15" fill="#2055aa" stroke="#fff" stroke-width="2.5"/>
+  <text x="320" y="365" text-anchor="middle" font-size="13" fill="#fff">♿</text>
+</g> -->
+
+  <!-- Zone 5 -->
+
+     <g class="zone" id="zone-mutare" onclick="handleZoneClick('mutare')">
+      <circle class="zone-area" cx="700" cy="300" r="30"/>
+      <!-- Pin (school) -->
+      <circle cx="700" cy="300" r="15" fill="#cc8800" stroke="#fff" stroke-width="2.5"/>
+      <text x="700" y="300" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" fill="#fff">🏫</text>
+      <!-- Popup card -->
+      <g class="popup">
+        <rect x="623" y="322" width="150" height="64" rx="9"
+          fill="#ffffff" stroke="#e0ddd5" stroke-width="1"/>
+        <text x="698" y="340" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#1a1a18">Mutare (Manicaland)</text>
+        <text x="698" y="354" text-anchor="middle"
+          font-family="DM Sans,sans-serif" font-size="10" fill="#888">School Exclusion</text>
+        <g class="listen-btn" id="btn-mutare" onclick="toggleAudio('mutare', event)">
+          <rect x="643" y="364" width="110" height="26" rx="7" fill="#E26A12"/>
+          <text x="698" y="381" text-anchor="middle"
+            font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="#fff" letter-spacing="0.06em">▶  LISTEN</text>
+        </g>
+      </g>
+    </g>
+<!-- <g class="zone" id="zone-mutare">
+  <circle cx="700" cy="300" r="55" opacity="0.25" fill="#cc8800"/>
+  <circle cx="700" cy="300" r="15" fill="#cc8800" stroke="#fff" stroke-width="2.5"/>
+  <text x="700" y="305" text-anchor="middle" font-size="13" fill="#fff">🏫</text>
+</g> -->
+
+</svg>
+
+</div>
+
+<!-- Audio playback panel -->
+<div class="audio-panel" id="audio-panel">
+  <div class="audio-header">
+    <div class="audio-dot idle" id="audio-dot"></div>
+    <div>
+      <div class="audio-name" id="audio-name">—</div>
+      <div class="audio-theme" id="audio-theme"></div>
+    </div>
+  </div>
+  <div class="progress-bar-wrap" id="progress-wrap" onclick="seekAudio(event)">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+  <div class="audio-controls">
+    <button class="play-btn-ui" id="play-btn-ui" onclick="uiTogglePlay()" aria-label="Play or pause">▶</button>
+    <span class="audio-time" id="audio-time-display">0:00 / 0:00</span>
+  </div>
+  <p class="audio-note" id="audio-note"></p>
+  <div class="audio-file-hint" id="audio-file-hint"></div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2a8a42"></div> Binga — Epistemic Injustice</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d42020"></div> Harare — Language Barriers</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#7a44bb"></div> Epworth — Financial Exclusion</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2055aa"></div> Makokoba — Disability Justice</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#cc8800"></div> Mutare — School Exclusion</div>
+</div>
+
+<script>
+  /*
+   * ─────────────────────────────────────────────────────────────────
+   *  AUDIO CONFIGURATION
+   *
+   *  To add real audio files, set the `src` field for each zone
+   *  to the path or URL of your audio file, e.g.:
+   *    src: 'audio/binga.mp3'
+   *    src: 'https://example.com/audio/harare.ogg'
+   *
+   *  Leave src as '' to keep the tone-preview placeholder.
+   * ─────────────────────────────────────────────────────────────────
+   */
+  const zones = {
+    binga: {
+      name:  'Binga District',
+      theme: 'Epistemic Injustice',
+      note:  'Community voices from Binga on being dismissed and disbelieved in healthcare settings.',
+      src:   'zone1.mp3'   // e.g. 'audio/binga.mp3'
+    },
+    harare: {
+      name:  'Harare Central Hospital',
+      theme: 'Language Barriers',
+      note:  'Patients with hearing impairments navigating a hospital with no sign-language support.',
+      src:   'zone2.mp3'
+    },
+    epworth: {
+      name:  'Epworth (Peri-Urban)',
+      theme: 'Financial Exclusion',
+      note:  'Residents with disabilities on mobile money barriers and inaccessible financial services.',
+      src:   'zone3.mp3'
+    },
+    makokoba: {
+      name:  'Makokoba, Bulawayo',
+      theme: 'Disability Justice',
+      note:  'Stories from Makokoba on wheelchair access, employment discrimination, and community activism.',
+      src:   'zone4.mp3'
+    },
+    mutare: {
+      name:  'Mutare (Manicaland)',
+      theme: 'School Exclusion',
+      note:  'Children with disabilities on being turned away from schools in Manicaland.',
+      src:   'zone5.mp3'
+    }
+  };
+
+  /* ── State ── */
+  let current   = null;
+  let playing   = false;
+  let elapsed   = 0;
+  let duration  = 0;
+  let ticker    = null;
+  let audioEl   = null;   // <audio> element when a real file is loaded
+  let synthCtx  = null;   // Web Audio context for tone fallback
+
+  /* ── Zone click (highlights active zone) ── */
+  function handleZoneClick(id) {
+    document.querySelectorAll('.zone').forEach(z => z.classList.remove('active'));
+    document.getElementById('zone-' + id).classList.add('active');
+  }
+
+  /* ── Listen button toggle ── */
+  function toggleAudio(id, evt) {
+    evt.stopPropagation();
+    if (current === id && playing) { pauseAudio(); return; }
+    if (current !== id) { stopAudio(); current = id; elapsed = 0; }
+    startAudio();
+  }
+
+  /* ── Start playback ── */
+  function startAudio() {
+    const z = zones[current];
+    playing = true;
+
+    updatePanel(z);
+    document.getElementById('audio-panel').classList.add('visible');
+    document.getElementById('audio-dot').classList.remove('idle');
+    document.getElementById('play-btn-ui').textContent = '⏸';
+    document.getElementById('play-btn-ui').classList.add('playing');
+    updateListenButtons();
+
+    if (z.src) {
+      /* ── Real audio file ── */
+      if (!audioEl || audioEl.dataset.zone !== current) {
+        if (audioEl) audioEl.pause();
+        audioEl = new Audio(z.src);
+        audioEl.dataset.zone = current;
+        audioEl.addEventListener('loadedmetadata', () => { duration = audioEl.duration; updateDisplay(); });
+        audioEl.addEventListener('timeupdate', () => { elapsed = audioEl.currentTime; updateDisplay(); });
+        audioEl.addEventListener('ended', () => { elapsed = duration; playing = false; updateDisplay(); resetPlayButton(); });
+      }
+      audioEl.currentTime = elapsed;
+      audioEl.play().catch(console.warn);
+    } else {
+      /* ── Tone preview fallback ── */
+      duration = 120;
+      playToneFeedback();
+      clearInterval(ticker);
+      ticker = setInterval(() => {
+        elapsed += 0.5;
+        if (elapsed >= duration) { elapsed = duration; pauseAudio(); }
+        updateDisplay();
+      }, 500);
+      updateDisplay();
+    }
+  }
+
+  /* ── Pause ── */
+  function pauseAudio() {
+    playing = false;
+    clearInterval(ticker);
+    if (audioEl && audioEl.dataset.zone === current) audioEl.pause();
+    document.getElementById('audio-dot').classList.add('idle');
+    resetPlayButton();
+    updateListenButtons();
+  }
+
+  /* ── Stop completely ── */
+  function stopAudio() {
+    pauseAudio();
+    elapsed = 0;
+    if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
+  }
+
+  /* ── UI play/pause button ── */
+  function uiTogglePlay() {
+    if (!current) return;
+    playing ? pauseAudio() : startAudio();
+  }
+
+  /* ── Click on progress bar to seek ── */
+  function seekAudio(evt) {
+    if (!current || !duration) return;
+    const wrap = document.getElementById('progress-wrap');
+    const ratio = Math.min(1, Math.max(0, evt.offsetX / wrap.offsetWidth));
+    elapsed = ratio * duration;
+    if (audioEl && audioEl.dataset.zone === current) audioEl.currentTime = elapsed;
+    updateDisplay();
+  }
+
+  /* ── Update audio panel content ── */
+  function updatePanel(z) {
+    document.getElementById('audio-name').textContent  = z.name;
+    document.getElementById('audio-theme').textContent = z.theme;
+    document.getElementById('audio-note').textContent  = z.note;
+    const hint = document.getElementById('audio-file-hint');
+    if (!z.src) {
+      hint.innerHTML = '⚠ No audio file linked yet. To add audio, open this HTML file and set '
+        + '<code>src: \'your-file.mp3\'</code> for <strong>' + z.name + '</strong> in the zones config.';
+    } else {
+      hint.innerHTML = '';
+    }
+  }
+
+  /* ── Update progress bar and time display ── */
+  function updateDisplay() {
+    const pct = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('audio-time-display').textContent = fmt(elapsed) + ' / ' + fmt(duration);
+  }
+
+  /* ── Reset play button to paused state ── */
+  function resetPlayButton() {
+    document.getElementById('play-btn-ui').textContent = '▶';
+    document.getElementById('play-btn-ui').classList.remove('playing');
+  }
+
+  /* ── Keep SVG listen buttons in sync ── */
+  function updateListenButtons() {
+    ['binga','harare','epworth','makokoba','mutare'].forEach(id => {
+      const btn = document.getElementById('btn-' + id);
+      if (!btn) return;
+      if (id === current && playing) btn.classList.add('playing');
+      else btn.classList.remove('playing');
+    });
+  }
+
+  /* ── Format seconds → m:ss ── */
+  function fmt(s) {
+    s = Math.floor(s || 0);
+    return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
+  }
+
+  /* ── Tone preview using Web Audio API ── */
+  function playToneFeedback() {
+    try {
+      if (!synthCtx) synthCtx = new (window.AudioContext || window.webkitAudioContext)();
+      [440, 523, 659, 784].forEach((freq, i) => {
+        const osc  = synthCtx.createOscillator();
+        const gain = synthCtx.createGain();
+        osc.connect(gain);
+        gain.connect(synthCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, synthCtx.currentTime + i * 0.13);
+        gain.gain.setValueAtTime(0, synthCtx.currentTime + i * 0.13);
+        gain.gain.linearRampToValueAtTime(0.07, synthCtx.currentTime + i * 0.13 + 0.05);
+        gain.gain.linearRampToValueAtTime(0, synthCtx.currentTime + i * 0.13 + 0.2);
+        osc.start(synthCtx.currentTime + i * 0.13);
+        osc.stop(synthCtx.currentTime + i * 0.13 + 0.25);
+      });
+    } catch (e) { /* audio not supported */ }
+  }
+</script>
+</body>
+</html>
